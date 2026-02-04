@@ -5,14 +5,12 @@ class BreastCancerModel(nn.Module):
     def __init__(self, input_features):
         super(BreastCancerModel, self).__init__()
 
-        self.model = nn.Sequential(
-            nn.Linear(input_features, 16),
-            nn.ReLU(),
-            nn.Linear(16, 8),
-            nn.ReLU(),
-            nn.Linear(8, 1),
-            nn.Sigmoid()   # Binary classification
-        )
+        self.fc1 = nn.Linear(input_features, 16)
+        self.fc2 = nn.Linear(16, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        return self.model(x)
+        x = self.relu(self.fc1(x))
+        x = self.sigmoid(self.fc2(x))
+        return x
