@@ -1,7 +1,8 @@
 import streamlit as st
 import torch
 import numpy as np
-from model import BreastCancerModel
+import torch.nn.functional as F
+from model import BreastCancerClassifier
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -10,11 +11,14 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- LOAD MODEL (CACHED) ----------------
+# ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_model():
-    INPUT_FEATURES = 30
-    model = BreastCancerModel(INPUT_FEATURES)
+    model = BreastCancerClassifier(
+        input_features=30,
+        hidden_features=20,
+        output_features=2
+    )
     model.load_state_dict(
         torch.load("model.pth", map_location=torch.device("cpu"))
     )
@@ -25,13 +29,10 @@ model = load_model()
 
 # ---------------- UI ----------------
 st.title("🩺 Breast Cancer Identification App")
-st.markdown(
-    "This app uses a **PyTorch deep learning model** to predict whether a tumor is **Benign or Malignant**."
-)
+st.write("Predict whether a tumor is **Benign or Malignant** using a PyTorch model.")
 
 st.divider()
 
-# Feature names (Wisconsin dataset)
 feature_names = [
     "Mean Radius", "Mean Texture", "Mean Perimeter", "Mean Area", "Mean Smoothness",
     "Mean Compactness", "Mean Concavity", "Mean Concave Points", "Mean Symmetry", "Mean Fractal Dimension",
@@ -43,31 +44,25 @@ feature_names = [
 
 features = []
 
-st.subheader("🔢 Enter Patient Medical Features")
+st.subheader("🔢 Enter Medical Features")
 
 for name in feature_names:
-    value = st.number_input(
-        name,
-        min_value=0.0,
-        format="%.4f"
-    )
+    value = st.number_input(name, min_value=0.0, format="%.4f")
     features.append(value)
 
-# ---------------- PREDICTION ----------------
 st.divider()
 
-if st.button("🔍 Predict Cancer Type", use_container_width=True):
+# ---------------- PREDICTION ----------------
+if st.button("🔍 Predict", use_container_width=True):
     input_data = np.array(features, dtype=np.float32).reshape(1, -1)
     input_tensor = torch.tensor(input_data)
 
     with torch.no_grad():
-        output = model(input_tensor)
-        probability = output.item()
-        prediction = 1 if probability >= 0.5 else 0
+        outputs = model(input_tensor)
+        probs = F.softmax(outputs, dim=1)
+        pred = torch.argmax(probs, dim=1).item()
 
-    st.subheader("🧾 Result")
-
-    if prediction == 1:
-        st.success(f"✅ **Benign (No Cancer Detected)**\n\nProbability: **{probability:.2%}**")
+    if pred == 1:
+        st.success(f"✅ **Benign**\n\nConfidence: **{probs[0][1]:.2%}**")
     else:
-        st.error(f"⚠️ **Malignant (Cancer Detected)**\n\nProbability: **{1 - probability:.2%}**")
+        st.error(f"⚠️ **Malignant**\n\nConfidence: **{probs[0][0]:.2%}**")
